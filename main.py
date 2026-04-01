@@ -6,7 +6,7 @@ import datetime
 
 # --- Configuration ---
 # Replace 'YOUR_BOT_TOKEN' with your actual bot token
-TOKEN = 'MTQ4ODkxNjk2NTQ4ODcyMjA5MA.GxgC7q.zU7qOVUFwt5c2yTGd3Jz9vk55F-C0V2y_NFojM'
+TOKEN = 'Token'
 # Optional: Set a command prefix. You can use '!', '.', or anything else.
 COMMAND_PREFIX = '!'
 # Optional: List of user IDs who have admin permissions for commands like !clear
