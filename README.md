@@ -1,2 +1,2 @@
-# SL_Manager
+# Pulse
 Sanguis Luna Org Manager Bot
