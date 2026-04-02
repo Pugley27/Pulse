@@ -3,23 +3,16 @@ from discord.ext import commands
 import random
 import re
 import datetime
-
-# --- Configuration ---
-# Replace 'YOUR_BOT_TOKEN' with your actual bot token
-TOKEN = 'Token'
-# Optional: Set a command prefix. You can use '!', '.', or anything else.
-COMMAND_PREFIX = '!'
-# Optional: List of user IDs who have admin permissions for commands like !clear
-ADMIN_IDS = []  # Example: [123456789012345678, 987654321098765432]
-# Optional: Emoji users will react with for the loot roll
-LOOT_ROLL_EMOJI = '🎲' # You can use any emoji, e.g., '✅', '⚔️'
+import discord_bot
 
 # --- Bot Setup ---
 intents = discord.Intents.default()
 intents.message_content = True  # Enable the message content intent
 intents.members = True # Required for fetching members in lootroll if they aren't cached
+LOOT_ROLL_EMOJI = '🎲' # You can use any emoji, e.g., '✅', '⚔️'
 
-bot = commands.Bot(command_prefix=COMMAND_PREFIX, intents=intents)
+bot = discord_bot.DiscordBot(token='YOUR_BOT_TOKEN', intents=intents)
+bot.run()   
 
 # --- Helper Functions ---
 def parse_dice_roll(roll_str):
@@ -41,7 +34,7 @@ def parse_dice_roll(roll_str):
 async def on_ready():
     print(f'{bot.user.name} has connected to Discord!')
     print(f'Bot ID: {bot.user.id}')
-    print(f'Command Prefix: {COMMAND_PREFIX}')
+    print(f'Command Prefix: {bot.command_prefix}')
     print('Ready to roll some dice!')
 
 @bot.event
@@ -61,7 +54,7 @@ async def on_command_error(ctx, error):
 
 # --- Commands ---
 
-@bot.command(name='roll', help=f'Rolls dice. Usage: {COMMAND_PREFIX}roll [NdM][+/-X] (e.g., d20, 2d6+3)')
+@bot.command(name='roll', help=f'Rolls dice. Usage: {bot.command_prefix}roll [NdM][+/-X] (e.g., d20, 2d6+3)')
 async def roll_dice(ctx, *, roll_string: str):
     """
     Rolls dice based on the provided string.
@@ -141,7 +134,7 @@ async def loot_roll(ctx):
 
     await ctx.send(results_message)
 
-@bot.command(name='clear', help=f'Clears a specified number of messages. Admin only. Usage: {COMMAND_PREFIX}clear [number]')
+@bot.command(name='clear', help=f'Clears a specified number of messages. Admin only. Usage: {bot.command_prefix}clear [number]')
 @commands.has_permissions(manage_messages=True)
 @commands.is_owner() # This decorator makes sure only the bot owner can use it.
                       # If you want specific admins, use check_admin_permission decorator below.
@@ -150,7 +143,7 @@ async def clear_messages(ctx, count: int):
     Clears the specified number of messages from the current channel.
     Requires 'Manage Messages' permission.
     """
-    if ctx.author.id not in ADMIN_IDS: # Custom admin check
+    if ctx.author.id not in bot.admin_ids: # Custom admin check
         if not await bot.is_owner(ctx.author): # Also check if the author is the bot's owner
             await ctx.send("You are not authorized to use this command.")
             return
@@ -163,10 +156,10 @@ async def clear_messages(ctx, count: int):
     deleted = await ctx.channel.purge(limit=count + 1)
     await ctx.send(f"Cleared {len(deleted) - 1} messages.", delete_after=5) # -1 to not count the command itself
 
-# Custom check for ADMIN_IDS (if you don't want to use commands.is_owner)
+# Custom check for bot.admin_ids (if you don't want to use commands.is_owner)
 def is_admin():
     async def predicate(ctx):
-        if ctx.author.id in ADMIN_IDS:
+        if ctx.author.id in bot.admin_ids:
             return True
         # Fallback to check if the user is the bot's owner
         return await ctx.bot.is_owner(ctx.author)
@@ -180,10 +173,7 @@ def is_admin():
 
 # --- Run the Bot ---
 if __name__ == "__main__":
-    if TOKEN == 'YOUR_BOT_TOKEN':
-        print("ERROR: Please replace 'YOUR_BOT_TOKEN' with your actual bot token in the script.")
-    else:
-        bot.run(TOKEN)
+    bot.run()
 
 
  
