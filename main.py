@@ -3,21 +3,19 @@ from discord.ext import commands
 import random
 import re
 import datetime
-import discord_bot
-import os
+from api_client import GuildAPI
+from discord_bot import db, bot
 from dotenv import load_dotenv
+import os
 
 # Load variables from .env into the system environment
 load_dotenv()
 
-# --- Bot Setup ---
-intents = discord.Intents.default()
-intents.message_content = True  # Enable the message content intent
-intents.members = True # Required for fetching members in lootroll if they aren't cached
 LOOT_ROLL_EMOJI = '🎲' # You can use any emoji, e.g., '✅', '⚔️'
 
-db = discord_bot.DiscordBot(token=os.getenv('DISCORD_TOKEN'), intents=intents)
-bot = db.bot # Get the actual bot instance to use for commands and events
+# Create an instance of your API client
+API_KEY = os.getenv("SECRET_API_KEY") # Set this in Railway Variables
+api = GuildAPI("https://your-railway-app.url", API_KEY)
 
 # --- Helper Functions ---
 def parse_dice_roll(roll_str):
@@ -58,6 +56,12 @@ async def on_command_error(ctx, error):
         await ctx.send(f"An error occurred while processing your command: `{error}`")
 
 # --- Commands ---
+@bot.hybrid_command(name="add_cruor", description="Pay a member Cruor")
+async def pay_member(ctx, member: discord.Member, amount: int):
+    await ctx.defer()
+    # Call a completely different function
+    result = await api.update_cruor(member.id, amount)
+    await ctx.send(f"Added {amount} Cruor to {member.display_name} blood for the blood gods!")
 
 @bot.command(name='roll', help=f'Rolls dice. Usage: {bot.command_prefix}roll [NdM][+/-X] (e.g., d20, 2d6+3)')
 async def roll_dice(ctx, *, roll_string: str):
@@ -139,6 +143,7 @@ async def loot_roll(ctx):
 
     await ctx.send(results_message)
 
+
 @bot.command(name='clear', help=f'Clears a specified number of messages. Admin only. Usage: {bot.command_prefix}clear [number]')
 @commands.has_permissions(manage_messages=True)
 @commands.is_owner() # This decorator makes sure only the bot owner can use it.
@@ -175,6 +180,7 @@ def is_admin():
 # @is_admin()
 # async def admin_only_command(ctx):
 #     await ctx.send("You're an admin!")
+
 
 # --- Run the Bot ---
 if __name__ == "__main__":
