@@ -4,18 +4,23 @@ import random
 import re
 import datetime
 from api_client import GuildAPI
-from discord_bot import db, bot
+import discord_bot
 from dotenv import load_dotenv
 import os
+
+LOOT_ROLL_EMOJI = '🎲' # You can use any emoji, e.g., '✅', '⚔️'
 
 # Load variables from .env into the system environment
 load_dotenv()
 
-LOOT_ROLL_EMOJI = '🎲' # You can use any emoji, e.g., '✅', '⚔️'
+DISCORD_TOKEN = os.getenv('DISCORD_TOKEN') # Set this in Railway Variables
+db = discord_bot.DiscordBot(DISCORD_TOKEN)
+bot = db.bot # Get the actual bot instance to use for commands and events
 
 # Create an instance of your API client
 API_KEY = os.getenv("SECRET_API_KEY") # Set this in Railway Variables
-api = GuildAPI("https://your-railway-app.url", API_KEY)
+API_URL = os.getenv("API_URL")
+api = GuildAPI(API_URL, API_KEY)
 
 # --- Helper Functions ---
 def parse_dice_roll(roll_str):
@@ -180,7 +185,6 @@ def is_admin():
 # @is_admin()
 # async def admin_only_command(ctx):
 #     await ctx.send("You're an admin!")
-
 
 # --- Run the Bot ---
 if __name__ == "__main__":
