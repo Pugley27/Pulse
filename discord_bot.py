@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 import os
 
 class DiscordBot():
-    def __init__ (self, token,  command_prefix='/', admin_ids=None):
+    def __init__ (self, token,  command_prefix='!', admin_ids=None):
 # --- Bot Setup ---
         self.intents = discord.Intents.default()
         self.intents.message_content = True  # Enable the message content intent

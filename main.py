@@ -61,7 +61,7 @@ async def on_command_error(ctx, error):
         await ctx.send(f"An error occurred while processing your command: `{error}`")
 
 # --- Commands ---
-@bot.hybrid_command(name="add_cruor", description="Pay a member Cruor")
+@bot.command(name="add_cruor", description="Pay a member Cruor")
 async def pay_member(ctx, member: discord.Member, amount: int):
     await ctx.defer()
     # Call a completely different function
