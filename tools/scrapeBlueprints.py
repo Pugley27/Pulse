@@ -1,3 +1,4 @@
+import argparse
 import os
 import re
 from pathlib import Path
@@ -27,9 +28,10 @@ def find_blueprints(log_directory):
             with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
                 for line in f:
                     match = blueprint_pattern.search(line)
-                    namematch = name_pattern.search(line)
-                    if namematch:
-                        user_name = namematch.group(1).strip()
+                    if user_name == "unknown":
+                        namematch = name_pattern.search(line)
+                        if namematch:
+                            user_name = namematch.group(1).strip()
                     if match:
                         # Extract the blueprint name from the first capturing group
                         blueprint_name = match.group(1).strip()
@@ -49,12 +51,20 @@ def find_blueprints(log_directory):
     else:
         print("\nNo blueprints found in the current log files.")
 
-    print(output_data)
+    with open("blueprints.json", "w") as f:
+        json.dump(output_data, f, indent=4)
+
+    for blueprint in sorted(found_blueprints):
+        print(f"- {blueprint}")
+
 if __name__ == "__main__":
-    # Update this path to your Star Citizen log folder
-    # Note: Use forward slashes or double backslashes for Windows paths
-    SC_LOG_DIR = r"C:\Program Files\Roberts Space Industries\StarCitizen\LIVE"
-    
+    parser = argparse.ArgumentParser(prog = "scrapeBlueprints", description="Scrape blueprint names from Star Citizen log files")
+    parser.add_argument("--path",type=Path, default=Path("C:\\Program Files\\Roberts Space Industries\\StarCitizen\\LIVE"),  help="Path to star citizen installation (default: C:\\Program Files\\Roberts Space Industries\\StarCitizen\\LIVE)")
+    parser.add_argument("--output",type=Path, default=Path("."),  help="Path to output file")
+    args = parser.parse_args()
+
+    SC_LOG_DIR = args.path  
+
     find_blueprints(SC_LOG_DIR)
 
 
