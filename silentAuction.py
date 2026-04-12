@@ -1,127 +1,169 @@
 import discord
 from discord.ext import commands
 import random
-import re
+import os
+import psycopg2
+from psycopg2 import extras
 import datetime
 import asyncio
 
 # --- Configuration ---
-TOKEN = 'YOUR_BOT_TOKEN'
-COMMAND_PREFIX = '!'
-ADMIN_IDS = [] 
+TOKEN = os.getenv('DISCORD_TOKEN')
+DATABASE_URL = os.getenv('DATABASE_URL') # Provided by Railway
+TREASURER_ROLE_ID = 123456789012345678 
+
+# --- Database Connection ---
+def get_db_connection():
+    # Use sslmode='require' for cloud databases like Railway
+    return psycopg2.connect(DATABASE_URL, sslmode='require')
+
+def init_db():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    # Table for Bank
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS players (
+            user_id BIGINT PRIMARY KEY,
+            balance INTEGER DEFAULT 0
+        )''')
+    # Table for Auctions
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS auctions (
+            id SERIAL PRIMARY KEY,
+            item_name TEXT,
+            status TEXT DEFAULT 'active',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )''')
+    # Table for Bids
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS bids (
+            auction_id INTEGER REFERENCES auctions(id),
+            user_id BIGINT,
+            amount INTEGER,
+            PRIMARY KEY (auction_id, user_id)
+        )''')
+    conn.commit()
+    cur.close()
+    conn.close()
+
+init_db()
 
 # --- Bot Setup ---
 intents = discord.Intents.default()
-intents.message_content = True 
+intents.message_content = True
 intents.members = True
-intents.direct_messages = True # REQUIRED for silent bids
-# Note: You may need to enable 'Direct Messages' in your Bot settings on the Portal
+intents.direct_messages = True
+bot = commands.Bot(command_prefix='!', intents=intents)
 
-bot = commands.Bot(command_prefix=COMMAND_PREFIX, intents=intents)
+# --- Auction Logic with Postgres ---
 
-# Global dictionary to track the active auction
-# Format: {'item': 'Valorous Cape', 'bids': {user_id: amount}, 'active': False}
-auction_data = {'item': None, 'bids': {}, 'active': False}
-
-# --- Events ---
-@bot.event
-async def on_ready():
-    print(f'Loot Master {bot.user.name} is online.')
-
-# --- Commands ---
-
-@bot.command(name='startauction', help='Starts a silent auction. Usage: !startauction [Item Name]')
-@commands.has_permissions(manage_messages=True)
+@bot.command(name='startauction')
+@commands.has_role(TREASURER_ROLE_ID)
 async def start_auction(ctx, *, item_name: str):
-    if auction_data['active']:
-        await ctx.send("An auction is already in progress!")
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    # Ensure no other auction is active
+    cur.execute("SELECT id FROM auctions WHERE status = 'active'")
+    if cur.fetchone():
+        await ctx.send("🚨 An auction is already running!")
+        conn.close()
         return
 
-    auction_data['active'] = True
-    auction_data['item'] = item_name
-    auction_data['bids'] = {}
+    # Create new auction
+    cur.execute("INSERT INTO auctions (item_name) VALUES (%s) RETURNING id", (item_name,))
+    auction_id = cur.fetchone()[0]
+    conn.commit()
+    conn.close()
 
     await ctx.send(
         f"⚔️ **SILENT AUCTION STARTED: {item_name.upper()}** ⚔️\n"
-        f"To bid, send a **Direct Message** to this bot with: `!bid [amount]`\n"
-        f"The auction ends in **60 seconds**!"
+        f"DM the bot `!bid [amount]` to enter. Auction ends in 60 seconds!"
     )
 
-    await asyncio.sleep(60) # Wait for bids
-    await resolve_auction(ctx)
+    await asyncio.sleep(60)
+    await resolve_auction(ctx, auction_id)
 
-@bot.command(name='bid', help='DM the bot this command to bid Cruor.')
+@bot.command(name='bid')
 async def place_bid(ctx, amount: int):
-    # Check if this is a DM
     if not isinstance(ctx.channel, discord.DMChannel):
         await ctx.message.delete()
-        await ctx.author.send("Bids must be sent via DM to keep them silent! I deleted your public message.")
+        await ctx.author.send("Keep it secret! Bid via DM only.")
         return
 
-    if not auction_data['active']:
-        await ctx.send("There is no active auction right now.")
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # Get the current active auction
+    cur.execute("SELECT id, item_name FROM auctions WHERE status = 'active'")
+    auction = cur.fetchone()
+
+    if not auction:
+        await ctx.send("No active auction found.")
+        conn.close()
         return
 
-    if amount <= 0:
-        await ctx.send("Bid must be a positive amount of Cruor.")
-        return
+    auction_id, item_name = auction
 
-    auction_data['bids'][ctx.author.id] = amount
-    await ctx.send(f"✅ Your bid of **{amount} Cruor** for **{auction_data['item']}** has been recorded.")
+    # Check balance
+    cur.execute("SELECT balance FROM players WHERE user_id = %s", (ctx.author.id,))
+    res = cur.fetchone()
+    balance = res[0] if res else 0
 
-async def resolve_auction(ctx):
-    auction_data['active'] = False
-    item = auction_data['item']
-    bids = auction_data['bids']
-
-    if not bids:
-        await ctx.send(f"The auction for **{item}** ended with no bids.")
-        return
-
-    # 1. Find the highest bid amount
-    max_bid = max(bids.values())
-    
-    # 2. Find all users who bid that amount
-    winners = [user_id for user_id, amt in bids.items() if amt == max_bid]
-    
-    await ctx.send(f"🛑 **Auction for {item} has ended!**\n"
-                   f"The highest bid was **{max_bid} Cruor**.")
-
-    if len(winners) == 1:
-        winner_user = await bot.fetch_user(winners[0])
-        await ctx.send(f"🏆 **WINNER:** {winner_user.mention} with a bid of {max_bid} Cruor!")
+    if amount > balance:
+        await ctx.send(f"❌ Poor form! You only have {balance} Cruor.")
     else:
-        # 3. Tie! Start Roll-off
-        candidate_mentions = " ".join([(await bot.fetch_user(uid)).mention for uid in winners])
-        await ctx.send(f"🤝 **TIE DETECTED!** {candidate_mentions}, you bid the same amount. Starting the automated roll-off...")
-        
+        # Upsert bid (Update if exists, Insert if not)
+        cur.execute('''
+            INSERT INTO bids (auction_id, user_id, amount) VALUES (%s, %s, %s)
+            ON CONFLICT (auction_id, user_id) DO UPDATE SET amount = EXCLUDED.amount
+        ''', (auction_id, ctx.author.id, amount))
+        conn.commit()
+        await ctx.send(f"✅ Bid of **{amount}** for **{item_name}** recorded!")
+
+    cur.close()
+    conn.close()
+
+async def resolve_auction(ctx, auction_id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # Set status to ended
+    cur.execute("UPDATE auctions SET status = 'ended' WHERE id = %s RETURNING item_name", (auction_id,))
+    item_name = cur.fetchone()[0]
+
+    # Get bids
+    cur.execute("SELECT user_id, amount FROM bids WHERE auction_id = %s", (auction_id,))
+    all_bids = cur.fetchall() # List of (user_id, amount)
+
+    if not all_bids:
+        await ctx.send(f"The auction for **{item_name}** ended with no bids.")
+        conn.commit()
+        conn.close()
+        return
+
+    max_bid = max(b[1] for b in all_bids)
+    winners = [b[0] for b in all_bids if b[1] == max_bid]
+
+    await ctx.send(f"🛑 **Auction for {item_name} has ended!** Max bid: **{max_bid} Cruor**.")
+
+    final_winner_id = None
+    if len(winners) == 1:
+        final_winner_id = winners[0]
+    else:
+        # Re-use your perform_roll_off logic here
+        await ctx.send("🤝 **TIE!** Starting automated roll-off...")
         final_winner_id = await perform_roll_off(ctx, winners)
-        winner_user = await bot.fetch_user(final_winner_id)
-        await ctx.send(f"🎊 After the roll-off, {winner_user.mention} wins the **{item}**!")
 
-async def perform_roll_off(ctx, user_ids):
-    """Recursive/Looping roll-off logic to handle ties indefinitely."""
-    while True:
-        rolls = {}
-        roll_results_text = "**Roll-off Results:**\n"
-        
-        for uid in user_ids:
-            user = await bot.fetch_user(uid)
-            roll = random.randint(1, 100)
-            rolls[uid] = roll
-            roll_results_text += f"{user.display_name}: {roll}\n"
-        
-        await ctx.send(roll_results_text)
-        
-        max_roll = max(rolls.values())
-        top_rollers = [uid for uid, val in rolls.items() if val == max_roll]
-        
-        if len(top_rollers) == 1:
-            return top_rollers[0]
-        else:
-            user_ids = top_rollers # Only the people who tied for high roll go to next round
-            await ctx.send("♻️ **Another tie!** Rolling again for the top rollers...")
-            await asyncio.sleep(2) # Short pause for dramatic effect
+    # Deduct Cruor
+    cur.execute("UPDATE players SET balance = balance - %s WHERE user_id = %s", (max_bid, final_winner_id))
+    conn.commit()
+    
+    winner_user = await bot.fetch_user(final_winner_id)
+    await ctx.send(f"🏆 **WINNER:** {winner_user.mention} has won **{item_name}**!")
+    
+    cur.close()
+    conn.close()
 
-# --- Run the Bot ---
-bot.run(TOKEN)
+# Note: Keep your perform_roll_off, add_cruor, and balance commands from previous steps,
+# just ensure they use get_db_connection() and Postgres syntax (%s instead of ?).

@@ -12,6 +12,11 @@ class GuildAPI:
         params = {"member_id": member_id, "display_name": name, "cruor_amount": amount}
         return await self._post(url, params)
 
+    async def get_balance(self, member_id: int):
+        url = f"{self.base_url}/currency/{member_id}"
+        print(f"Fetching balance for member ID {member_id}. URL: {url}")
+        return await self._get(url)
+
     async def _post(self, url, params):
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers=self.headers, json=params) as resp:

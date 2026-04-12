@@ -71,6 +71,13 @@ async def pay_member(ctx, member: discord.Member, amount: int):
     result = await api.update_cruor(member.id, member.display_name ,amount)
     await ctx.send(f"Added {amount} Cruor to {member.display_name} blood for the blood gods!")
 
+@bot.command(name="get_balance", description="Check a member's Cruor balance")
+async def get_balance(ctx, member: discord.Member):
+    await ctx.defer()
+    # Call a completely different function
+    result = await api.get_balance(member.id)
+    await ctx.send(f"{member.display_name} has {result['balance']} Cruor.")
+
 @bot.command(name='roll', help=f'Rolls dice. Usage: {bot.command_prefix}roll [NdM][+/-X] (e.g., d20, 2d6+3)')
 async def roll_dice(ctx, *, roll_string: str):
     """
