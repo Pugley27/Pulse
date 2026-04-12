@@ -20,6 +20,8 @@ bot = db.bot # Get the actual bot instance to use for commands and events
 # Create an instance of your API client
 API_KEY = os.getenv("SECRET_API_KEY") # Set this in Railway Variables
 API_URL = os.getenv("API_URL")
+TREASURER_ROLE_ID = int(os.getenv("TREASURER_ROLE_ID")) # Replace with your actual Role ID
+
 api = GuildAPI(API_URL, API_KEY)
 
 # --- Helper Functions ---
@@ -62,6 +64,7 @@ async def on_command_error(ctx, error):
 
 # --- Commands ---
 @bot.command(name="add_cruor", description="Pay a member Cruor")
+@commands.has_role(TREASURER_ROLE_ID) # Checks for the specific role
 async def pay_member(ctx, member: discord.Member, amount: int):
     await ctx.defer()
     # Call a completely different function
@@ -100,6 +103,7 @@ async def roll_dice(ctx, *, roll_string: str):
     await ctx.send(f"{ctx.author.mention} rolled `{roll_string}`:\n{roll_details}\n**Total: {total}**")
 
 @bot.command(name='lootroll', help=f'Starts a loot roll. React with {LOOT_ROLL_EMOJI} to participate and get a d100 roll.')
+@commands.has_role(TREASURER_ROLE_ID) # Checks for the specific role
 async def loot_roll(ctx):
     """
     Starts a loot roll where users react to participate.
