@@ -7,11 +7,13 @@ import re
 import datetime
 from api_client import GuildAPI
 import discord_bot
-from dotenv import load_dotenv
+from dotenv import load_dotenv, version
 import os
   
 
 LOOT_ROLL_EMOJI = '🎲' # You can use any emoji, e.g., '✅', '⚔️'
+with open("version.txt", "r") as file:
+    version = file.read().strip()
 
 # Load variables from .env into the system environment
 load_dotenv()
@@ -47,9 +49,9 @@ def parse_dice_roll(roll_str):
 @bot.event
 async def on_ready():
     print(f'{bot.user.name} has connected to Discord!')
-    print(f'Bot ID: {bot.user.id}')
+    print(f'Bot ID: {bot.user.id} Version: {version}')
     print(f'Command Prefix: {bot.command_prefix}')
-    print('Ready to roll some dice!')
+    print('Let us choose violence!')
 
 @bot.event
 async def on_command_error(ctx, error):
