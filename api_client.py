@@ -36,6 +36,11 @@ class GuildAPI:
         params = {"name": name, "description": description, "item_id": item_id}
         return await self._post(url, params)
     
+    async def get_active_auctions(self):    
+        url = f"{self.base_url}/auctions/active"
+        print(f"Fetching active auctions. URL: {url}")
+        return await self._get(url)     
+    
     async def _get(self, url):
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=self.headers) as resp:

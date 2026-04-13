@@ -20,6 +20,21 @@ class Auctions(commands.Cog):
             response = await self.bot.api.add_auction(name, description, item_id)
             await ctx.send(f"{name} auction created with ID: {response['auction_id']} for item: {response['item_name']}")
 
+    # Command calls the api to find all the active auctions and sends a message with the results. 
+    @commands.hybrid_command(name="list_auctions", description="List all active auctions")
+    async def list_auctions(self, ctx):
+        # Call the API to get the list of active auctions. The API will return a list of auctions with their details.
+        response = await self.bot.api.get_active_auctions()
+        if response and "auctions" in response:
+            auctions = response["auctions"]
+            if auctions:
+                auction_list = "\n".join([f"ID: {auction['id']} - {auction['name']} (Item: {auction['item_name']})" for auction in auctions])
+                await ctx.send(f"**Active Auctions:**\n{auction_list}")
+            else:
+                await ctx.send("There are currently no active auctions.")
+        else:
+            await ctx.send("Failed to retrieve auctions.")
+
 
     # This handles errors specifically for this Cog
     async def cog_command_error(self, ctx, error):
