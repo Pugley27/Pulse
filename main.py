@@ -1,3 +1,5 @@
+from enum import member
+
 import discord
 from discord.ext import commands
 import random
@@ -7,6 +9,7 @@ from api_client import GuildAPI
 import discord_bot
 from dotenv import load_dotenv
 import os
+  
 
 LOOT_ROLL_EMOJI = '🎲' # You can use any emoji, e.g., '✅', '⚔️'
 
@@ -63,6 +66,7 @@ async def on_command_error(ctx, error):
         await ctx.send(f"An error occurred while processing your command: `{error}`")
 
 # --- Commands ---
+
 @bot.command(name="add_cruor", description="Pay a member Cruor")
 @commands.has_role(TREASURER_ROLE_ID) # Checks for the specific role
 async def pay_member(ctx, member: discord.Member, amount: int):
@@ -73,10 +77,11 @@ async def pay_member(ctx, member: discord.Member, amount: int):
 
 @bot.command(name="get_balance", description="Check a member's Cruor balance")
 async def get_balance(ctx, member: discord.Member):
-    await ctx.defer()
-    # Call a completely different function
-    result = await api.get_balance(member.id)
-    await ctx.send(f"{member.display_name} has {result['balance']} Cruor.")
+    target = member or ctx.author
+    response = await api.get_balance(target.id)
+    
+    data = response
+    await ctx.send(f"💰 {target.display_name} has **{data['balance']} Cruor**.")
 
 @bot.command(name='roll', help=f'Rolls dice. Usage: {bot.command_prefix}roll [NdM][+/-X] (e.g., d20, 2d6+3)')
 async def roll_dice(ctx, *, roll_string: str):
