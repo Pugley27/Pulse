@@ -83,6 +83,12 @@ async def get_balance(ctx, member: discord.Member):
     data = response
     await ctx.send(f"💰 {target.display_name} has **{data['balance']} Cruor**.")
 
+@bot.command(name="add_item", description="Add an item to the auction")
+@commands.has_role(TREASURER_ROLE_ID) # Checks for the specific role
+async def add_item(ctx, name: str, description: str):
+    response = await api.add_item(name, description)
+    await ctx.send(f"{name} added to the auction items with ID: {response['item_id']}")
+
 @bot.command(name='roll', help=f'Rolls dice. Usage: {bot.command_prefix}roll [NdM][+/-X] (e.g., d20, 2d6+3)')
 async def roll_dice(ctx, *, roll_string: str):
     """

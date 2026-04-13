@@ -24,6 +24,12 @@ class GuildAPI:
         print(f"Fetching balance for member ID {member_id}. URL: {url}")
         return await self._get(url)
 
+    async def add_item(self, name: str, description: str):
+        url = f"{self.base_url}/auctions/add-item"
+        print(f"Adding item: {name}. URL: {url}")
+        params = {"name": name, "description": description}
+        return await self._post(url, params)
+
     async def _get(self, url):
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=self.headers) as resp:
