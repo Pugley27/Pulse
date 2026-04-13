@@ -1,36 +1,4 @@
 # This file is unused right now and it used to hold code snippets I dont want to delete yet. It can be deleted in the future if I decide I dont need it.
-
-@bot.command(name='clear', help=f'Clears a specified number of messages. Admin only. Usage: {bot.command_prefix}clear [number]')
-@commands.has_permissions(manage_messages=True)
-@commands.is_owner() # This decorator makes sure only the bot owner can use it.
-                      # If you want specific admins, use check_admin_permission decorator below.
-async def clear_messages(ctx, count: int):
-    """
-    Clears the specified number of messages from the current channel.
-    Requires 'Manage Messages' permission.
-    """
-    if ctx.author.id not in bot.admin_ids: # Custom admin check
-        if not await bot.is_owner(ctx.author): # Also check if the author is the bot's owner
-            await ctx.send("You are not authorized to use this command.")
-            return
-
-    if count <= 0:
-        await ctx.send("Please provide a positive number of messages to clear.")
-        return
-
-    # Add 1 to count to include the command message itself
-    deleted = await ctx.channel.purge(limit=count + 1)
-    await ctx.send(f"Cleared {len(deleted) - 1} messages.", delete_after=5) # -1 to not count the command itself
-
-# Custom check for bot.admin_ids (if you don't want to use commands.is_owner)
-def is_admin():
-    async def predicate(ctx):
-        if ctx.author.id in bot.admin_ids:
-            return True
-        # Fallback to check if the user is the bot's owner
-        return await ctx.bot.is_owner(ctx.author)
-    return commands.check(predicate)
-
 # --- Helper Functions ---
 def parse_dice_roll(roll_str):
     """

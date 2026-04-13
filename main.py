@@ -39,6 +39,7 @@ class MyBot(commands.Bot):
         await self.tree.sync(guild=MY_GUILD)
         print(f"Synced slash commands for {self.user}")
 
+
 # The following code sets up event handlers for when the bot is ready and for handling command errors.
 async def main():
     # Create an instance of the bot
@@ -67,6 +68,37 @@ async def main():
         else:
             print(f"An error occurred: {error}")
             await ctx.send(f"An error occurred while processing your command: `{error}`") 
+
+    # TODO:  move these admin commands to a separate cog if we add more of them. For now, this is the only admin command so it can stay here.
+    @bot.command(name='clear', help=f'Clears a specified number of messages. Admin only. Usage: {bot.command_prefix}clear [number]')
+    @commands.has_permissions(manage_messages=True)
+    @commands.is_owner() # This decorator makes sure only the bot owner can use it.
+    async def clear_messages(ctx, count: int):
+        """
+        Clears the specified number of messages from the current channel.
+        Requires 'Manage Messages' permission.
+        """
+        #if ctx.author.id not in bot.admin_ids: # Custom admin check
+        if not await bot.is_owner(ctx.author): # Also check if the author is the bot's owner
+            await ctx.send("You are not authorized to use this command.")
+            return
+
+        if count <= 0:
+            await ctx.send("Please provide a positive number of messages to clear.")
+            return
+
+        # Add 1 to count to include the command message itself
+        deleted = await ctx.channel.purge(limit=count + 1)
+        await ctx.send(f"Cleared {len(deleted) - 1} messages.", delete_after=5) # -1 to not count the command itself
+
+    # Custom check for bot.admin_ids (if you don't want to use commands.is_owner)
+    def is_admin():
+        async def predicate(ctx):
+            if ctx.author.id in bot.admin_ids:
+                return True
+            # Fallback to check if the user is the bot's owner
+            return await ctx.bot.is_owner(ctx.author)
+        return commands.check(predicate)
 
     # Start the bot
     async with bot:

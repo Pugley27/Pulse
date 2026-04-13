@@ -13,6 +13,13 @@ class Auctions(commands.Cog):
             response = await self.bot.api.add_item(name, description)
             await ctx.send(f"{name} added to the auction items with ID: {response['item_id']}")
 
+    # Add an item for auction. This is a simple command that takes a name and description for the item. Other commands for starting auctions, placing bids, etc. would be implemented similarly.
+    @commands.hybrid_command(name="add_auction", description="Create a new auction with an item")
+    async def add_auction(self, ctx, name: str, description: str, item_id: int):
+         if any(role.id in self.bot.config.STAFF_ROLES for role in ctx.author.roles):
+            response = await self.bot.api.add_auction(name, description, item_id)
+            await ctx.send(f"{name} auction created with ID: {response['auction_id']} for item: {response['item_name']}")
+
 
     # This handles errors specifically for this Cog
     async def cog_command_error(self, ctx, error):
