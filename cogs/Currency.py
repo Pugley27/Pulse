@@ -22,7 +22,10 @@ class Currency(commands.Cog):
             await ctx.defer()
             # Call the API to update the member's Cruor balance. We pass the member's ID, display name, and the amount to add. The API will handle updating the balance in the database.
             result = await self.bot.api.update_cruor(member.id, member.display_name ,amount)
-            await ctx.send(f"Added {amount} Cruor to {member.display_name} blood for the blood gods!")
+            if result:
+                await ctx.send(f"Added {amount} Cruor to {member.display_name} blood for the blood gods!")
+            else:
+                await ctx.send("Failed to update Cruor balance.")
         else:
             await ctx.send("You don't have the required permissions to use this command.")
 
