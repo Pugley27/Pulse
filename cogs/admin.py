@@ -1,3 +1,5 @@
+# This file is unused right now and it used to hold code snippets I dont want to delete yet. It can be deleted in the future if I decide I dont need it.
+
 @bot.command(name='clear', help=f'Clears a specified number of messages. Admin only. Usage: {bot.command_prefix}clear [number]')
 @commands.has_permissions(manage_messages=True)
 @commands.is_owner() # This decorator makes sure only the bot owner can use it.

@@ -32,6 +32,13 @@ class MyBot(commands.Bot):
         await self.load_extension("cogs.Auctions")  
         print("Cogs loaded successfully.")
 
+        # Syncing here makes commands available globally
+        # await self.tree.sync()
+        MY_GUILD = discord.Object(id=691310669181747260) 
+        self.tree.copy_global_to(guild=MY_GUILD) # Copies your global commands to the guild
+        await self.tree.sync(guild=MY_GUILD)
+        print(f"Synced slash commands for {self.user}")
+
 # The following code sets up event handlers for when the bot is ready and for handling command errors.
 async def main():
     # Create an instance of the bot

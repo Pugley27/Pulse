@@ -7,7 +7,7 @@ class Auctions(commands.Cog):
         self.bot = bot
 
     # Add an item for auction. This is a simple command that takes a name and description for the item. Other commands for starting auctions, placing bids, etc. would be implemented similarly.
-    @commands.command(name="add_item", description="Add an item to the auction")
+    @commands.hybrid_command(name="add_item", description="Add an item to the auction")
     async def add_item(self, ctx, name: str, description: str):
          if any(role.id in self.bot.config.STAFF_ROLES for role in ctx.author.roles):
             response = await self.bot.api.add_item(name, description)

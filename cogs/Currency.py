@@ -9,13 +9,13 @@ class Currency(commands.Cog):
         self.bot = bot
 
     # Note the use of @commands.command() and 'self'
-    @commands.command(name="ping")
+    @commands.hybrid_command(name="ping")
     async def ping(self, ctx):
         await ctx.send("Pong!")
 
     # Command for paying a member Cruor.  This is the org currency command that staff can use to add Cruor to a member's balance. 
     # It checks if the user has the required staff roles before allowing them to execute the command.
-    @commands.command(name="add_cruor", description="Pay a member Cruor")
+    @commands.hybrid_command(name="add_cruor", description="Pay a member Cruor")
     async def pay_member(self, ctx, member: discord.Member, amount: int):
         # Check if the user has the required staff roles
         if any(role.id in self.bot.config.STAFF_ROLES for role in ctx.author.roles):
@@ -31,7 +31,7 @@ class Currency(commands.Cog):
 
     # Command for checking a member's Cruor balance. This command can be used by anyone to check their own balance or the balance of another member. 
     # It calls the API to fetch the balance and then sends a message with the result.
-    @commands.command(name="get_balance", description="Check a member's Cruor balance")
+    @commands.hybrid_command(name="get_balance", description="Check a member's Cruor balance")
     async def get_balance(self, ctx, member: discord.Member):
         target = member or ctx.author
         response = await self.bot.api.get_balance(target.id)
