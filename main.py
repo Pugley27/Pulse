@@ -24,6 +24,7 @@ bot = db.bot # Get the actual bot instance to use for commands and events
 API_KEY = os.getenv("SECRET_API_KEY") # Set this in Railway Variables
 API_URL = os.getenv("API_URL")
 TREASURER_ROLE_ID = int(os.getenv("TREASURER_ROLE_ID")) # Replace with your actual Role ID
+ADJUDICATOR_ROLE_ID = int(os.getenv("ADJUDICATOR_ROLE_ID")) # Replace with your actual Role ID
 
 api = GuildAPI(API_URL, API_KEY)
 
@@ -68,7 +69,7 @@ async def on_command_error(ctx, error):
 # --- Commands ---
 
 @bot.command(name="add_cruor", description="Pay a member Cruor")
-@commands.has_role(TREASURER_ROLE_ID) # Checks for the specific role
+@commands.has_any_role(TREASURER_ROLE_ID, ADJUDICATOR_ROLE_ID) # Checks for the specific role
 async def pay_member(ctx, member: discord.Member, amount: int):
     await ctx.defer()
     # Call a completely different function
@@ -84,7 +85,7 @@ async def get_balance(ctx, member: discord.Member):
     await ctx.send(f"💰 {target.display_name} has **{data['balance']} Cruor**.")
 
 @bot.command(name="add_item", description="Add an item to the auction")
-@commands.has_role(TREASURER_ROLE_ID) # Checks for the specific role
+@commands.has_any_role(TREASURER_ROLE_ID, ADJUDICATOR_ROLE_ID) # Checks for the specific role
 async def add_item(ctx, name: str, description: str):
     response = await api.add_item(name, description)
     await ctx.send(f"{name} added to the auction items with ID: {response['item_id']}")
