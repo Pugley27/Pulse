@@ -39,6 +39,11 @@ class MyBot(commands.Bot):
         await self.tree.sync(guild=MY_GUILD)
         print(f"Synced slash commands for {self.user}")
 
+        MY_GUILD = discord.Object(id=1095151862505799680) 
+        self.tree.copy_global_to(guild=MY_GUILD) # Copies your global commands to the guild
+        await self.tree.sync(guild=MY_GUILD)
+        print(f"Synced slash commands for {self.user}")
+        
 
 # The following code sets up event handlers for when the bot is ready and for handling command errors.
 async def main():
@@ -69,6 +74,45 @@ async def main():
             print(f"An error occurred: {error}")
             await ctx.send(f"An error occurred while processing your command: `{error}`") 
 
+    bot.remove_command('help') # Remove the default help command to use our custom one that lists only hybrid commands
+    @bot.hybrid_command(name="help", description="List all available commands")
+    async def help_command(ctx: commands.Context):
+        embed = discord.Embed(
+            title="🤖 Command Menu",
+            description="Here are my commands grouped by category:",
+            color=discord.Color.blurple()
+        )
+
+        # Dictionary to group commands: { 'CogName': [command1, command2] }
+        categories = {}
+
+        for command in bot.commands:
+            if isinstance(command, commands.HybridCommand) and not command.hidden:
+                # Get the cog name, or use "General" if the command isn't in a cog
+                cog_name = command.cog_name if command.cog_name else "General"
+            
+                #add admin tag to commands that have the property "admin" in their help text for easy identification of admin commands. This is a bit hacky but it works for now without needing to add a separate property to the command.
+                if "admin" in (command.help or "").lower():
+                    cog_name += "🛡️ (Admin)"
+                if cog_name not in categories:
+                    categories[cog_name] = []
+                categories[cog_name].append(command)
+
+        # Add a field for each category to the embed
+        for cog_name, cmd_list in sorted(categories.items()):
+            # Format the command list: /name - help text
+            command_details = ""
+            for cmd in cmd_list:
+                help_text = cmd.help or cmd.description or "No info."
+                command_details += f"**/{cmd.name}**: {help_text}\n"
+
+            embed.add_field(
+                name=f"📁 {cog_name}",
+                value=command_details,
+                inline=False
+            )
+        await ctx.send(embed=embed)
+        
     # TODO:  move these admin commands to a separate cog if we add more of them. For now, this is the only admin command so it can stay here.
     @bot.command(name='clear', help=f'Clears a specified number of messages. Admin only. Usage: {bot.command_prefix}clear [number]')
     @commands.has_permissions(manage_messages=True)

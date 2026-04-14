@@ -46,11 +46,22 @@ class GuildAPI:
         print(f"Fetching active auctions. URL: {url}")
         return await self._get(url)    
 
+    async def get_unscheduled_auctions(self):    
+        url = f"{self.base_url}/auctions/unscheduled"
+        print(f"Fetching unscheduled auctions. URL: {url}")
+        return await self._get(url)
+    
     async def start_auction(self, auction_id: int, duration_minutes: int):
         url = f"{self.base_url}/auctions/start-auction"
         print(f"Starting auction ID: {auction_id} for duration: {duration_minutes} minutes. URL: {url}")
         params = {"auction_id": auction_id, "duration_minutes": duration_minutes}
         return await self._post(url, params) 
+    
+    async def place_bid(self, user_id: int, auction_id: int, amount: int):
+        url = f"{self.base_url}/auctions/place-bid"
+        print(f"Placing bid for user ID: {user_id} on auction ID: {auction_id} with amount: {amount}. URL: {url}")
+        params = {"user_id": user_id, "auction_id": auction_id, "amount": amount}
+        return await self._post(url, params)    
     
     async def _get(self, url):
         async with aiohttp.ClientSession() as session:
