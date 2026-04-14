@@ -1,4 +1,5 @@
 import asyncio
+import asyncpg
 import discord
 from discord.ext import commands
 from api_client import GuildAPI
@@ -10,6 +11,8 @@ class MyBot(commands.Bot):
         # Load configuration from environment variables
         self.config = config.Config() 
         
+        self.db_pool = None # This will hold our database connection pool, which we will initialize in setup_hook
+
         # Set up intents (required for certain features like fetching members)
         intents = discord.Intents.default()
         intents.message_content = True  # Enable the message content intent
@@ -24,12 +27,20 @@ class MyBot(commands.Bot):
         # Initialize the API client with the URL and key from the config
         self.api = GuildAPI(self.config.API_URL, self.config.API_KEY)
 
+        # Create the connection pool
+        self.db_pool = await asyncpg.create_pool(self.config.DATABASE_URL)
+        print("✅ Connected to PostgreSQL")
+        
         # Load cogs (these are the command modules that handle different functionalities)
         # Load currency cog for handling Cruor balance and transactions
         await self.load_extension("cogs.Currency")  
 
         # Load auctions cog for handling auction-related commands
         await self.load_extension("cogs.Auctions")  
+
+        # Load your Auction Cog
+        await self.load_extension("cogs.Auctioneer")
+        
         print("Cogs loaded successfully.")
 
         # Syncing here makes commands available globally
@@ -43,7 +54,12 @@ class MyBot(commands.Bot):
         self.tree.copy_global_to(guild=MY_GUILD) # Copies your global commands to the guild
         await self.tree.sync(guild=MY_GUILD)
         print(f"Synced slash commands for {self.user}")
-        
+
+    async def close(self):
+            # Gracefully close the pool when the bot shuts down
+            if self.db_pool:
+                await self.db_pool.close()
+            await super().close()        
 
 # The following code sets up event handlers for when the bot is ready and for handling command errors.
 async def main():

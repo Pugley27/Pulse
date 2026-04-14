@@ -26,7 +26,8 @@ class Config:
         self.TREASURER_ROLE_ID = int(os.getenv("TREASURER_ROLE_ID")) # Replace with your actual Role ID
         self.ADJUDICATOR_ROLE_ID = int(os.getenv("ADJUDICATOR_ROLE_ID")) # Replace with your actual Role ID
         self.STAFF_ROLES = [self.TREASURER_ROLE_ID, self.ADJUDICATOR_ROLE_ID]
-
+        self.DATABASE_URL = os.getenv("DATABASE_URL") # Set this in your .env file, e.g., postgresql://user:password@host:port/database 
+        
         # TODO: Not sure if needed but kept for posterity   
         self.LOOT_ROLL_EMOJI = '🎲' # You can use any emoji, e.g., '✅', '⚔️'   
 
