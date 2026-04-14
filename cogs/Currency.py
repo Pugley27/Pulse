@@ -31,8 +31,8 @@ class Currency(commands.Cog):
 
     # Command for checking a member's Cruor balance. This command can be used by anyone to check their own balance or the balance of another member. 
     # It calls the API to fetch the balance and then sends a message with the result.
-    @commands.hybrid_command(name="get_balance", description="Check a member's Cruor balance", help="Check a member's Cruor balance. Usage: !get_balance [member]")
-    async def get_balance(self, ctx, member: discord.Member):
+    @commands.hybrid_command(name="balance", description="Check a member's Cruor balance", help="Check a member's Cruor balance. Usage: !balance [member]")
+    async def get_balance(self, ctx, member: discord.Member = None):
         target = member or ctx.author
         response = await self.bot.api.get_balance(target.id)
             

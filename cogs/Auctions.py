@@ -1,5 +1,6 @@
 from email.utils import format_datetime
 from dateutil import parser
+import discord
 from discord.ext import commands
 
 # Cog for handling auction-related commands. This is where you would implement commands for creating auctions, bidding, etc.
@@ -68,6 +69,32 @@ class Auctions(commands.Cog):
         else:
             await ctx.send("Failed to place bid. Please check the auction ID and try again.")
 
+    # This is an admin command to list all the active bids for a specific auction. This would be useful for the auctioneer to see who has placed bids and what the current highest bid is. The API would return a list of bids with the user ID, bid amount, and timestamp.
+    @commands.hybrid_command(name="list_bids", description="List all bids for a specific auction", help="List all bids for a specific auction. Admin only. Usage: !list_bids [auction_id]")
+    async def list_bids(self, ctx, auction_id: int):
+        if any(role.id in self.bot.config.STAFF_ROLES for role in ctx.author.roles):
+            response = await self.bot.api.get_bids(auction_id)
+            if response and "bids" in response:
+                bids = response["bids"]
+                bid_list = ""
+                if bids:
+                    # For each bid, we can also try to fetch the user information from Discord to display their username instead of just their user ID. This is optional but can make the output more user-friendly.
+                    for bid in bids:    
+                        try:
+                            user = await self.bot.fetch_user(bid['user_id'])
+                        except discord.NotFound:
+                            print("No user exists with that ID.")        
+                                    
+                        bid_list += f"User ID: {user} - Amount: {bid['amount']} Cruor\n"
+
+                    await ctx.send(f"**Bids for Auction ID {auction_id}:**\n{bid_list}")
+                else:
+                    await ctx.send(f"There are currently no bids for auction ID {auction_id}.")
+            else:
+                await ctx.send("Failed to retrieve bids. Please check the auction ID and try again.")
+        else:
+            await ctx.send("You don't have the required permissions to use this command.")
+            
     def safe_format(self,date_str):
         try:
             return parser.parse(date_str).strftime('%m/%d/%Y %H:%M:%S')
@@ -75,8 +102,8 @@ class Auctions(commands.Cog):
             return "Unknown Date" 
 
     # Command for an admin to list auctions that have been created but not yet started. This is useful for managing auctions and seeing what items are scheduled to be auctioned. The API will return a list of auctions with their details, including the item name and description.
-    @commands.hybrid_command(name="list_unscheduled_auctions", description="List all auctions that have not yet started", help="List all auctions that have not yet started. Admin only. Usage: !list_unscheduled_auctions")
-    async def list_unscheduled_auctions(self, ctx):
+    @commands.hybrid_command(name="list_upcoming", description="List all auctions that have not yet started", help="List all auctions that have not yet started. Admin only. Usage: !list_upcoming")
+    async def list_upcoming_auctions(self, ctx):
         if any(role.id in self.bot.config.STAFF_ROLES for role in ctx.author.roles):
             response = await self.bot.api.get_unscheduled_auctions()
             if response and "auctions" in response:
