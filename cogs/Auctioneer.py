@@ -51,12 +51,18 @@ class Auctioneer(commands.Cog):
         if not channel:
             return
 
-        # Query your database for the highest bidder 
+        # Query your database for a random winner among the highest bidders
         winner_query = """
             SELECT user_id, amount 
             FROM bids 
             WHERE auction_id = $1 
-            ORDER BY amount DESC LIMIT 1
+            AND amount = (
+                SELECT MAX(amount) 
+                FROM bids 
+                WHERE auction_id = $1
+            )
+            ORDER BY RANDOM() 
+            LIMIT 1
         """
 
         winner = await conn.fetchrow(winner_query, record['id'])
