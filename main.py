@@ -40,6 +40,9 @@ class MyBot(commands.Bot):
 
         # Load your Auction Cog
         await self.load_extension("cogs.Auctioneer")
+
+        # Load quests cog for handling quest-related commands
+        await self.load_extension("cogs.Quests")
         
         print("Cogs loaded successfully.")
 
