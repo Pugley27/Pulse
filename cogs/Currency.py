@@ -15,7 +15,7 @@ class Currency(commands.Cog):
 
     # Command for paying a member Cruor.  This is the org currency command that staff can use to add Cruor to a member's balance. 
     # It checks if the user has the required staff roles before allowing them to execute the command.
-    @commands.hybrid_command(name="add_cruor", description="Pay a member Cruor", help="Pay a member Cruor. Admin only. Usage: !add_cruor [member] [amount]")
+    @commands.hybrid_command(name="pay", description="Pay a member Cruor", help="Pay a member Cruor. Admin only. Usage: !add_cruor [member] [amount]")
     async def pay_member(self, ctx, member: discord.Member, amount: int):
         # Check if the user has the required staff roles
         if any(role.id in self.bot.config.STAFF_ROLES for role in ctx.author.roles):

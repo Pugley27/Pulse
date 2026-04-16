@@ -11,12 +11,16 @@ class Auctions(commands.Cog):
     # Returns a list of all the items that have been added for auction with their IDs, names, and descriptions. This command can be used by anyone to see what items are available for auction.
     @commands.hybrid_command(name="list_items", description="List all items available for auction", help="List all items available for auction. Usage: !list_items")
     async def list_items(self, ctx):
+        item_list = ""
         response = await self.bot.api.get_items()
         if response and "items" in response:
             items = response["items"]
             if items:
-                item_list = "\n".join([f"ID: {item['id']} - {item['name']}: {item['description']}" for item in items])
-                await ctx.send(f"**Items Available for Auction:**\n{item_list}")
+                for item in items:    
+                    winner = await self.bot.fetch_user(item['member_id']) if item['member_id'] else 'None'
+                    holder = await self.bot.fetch_user(item['holder_id']) if item['holder_id'] else 'None'
+                    item_list += f"ID: {item['id']} - {item['name']}: {item['description']}, Status: {item['status']}, Auction ID: {item['auction_id']}, Winner: {winner}, Holder: {holder}\n"
+                await ctx.send(f"**Auction Items:**\n{item_list}")
             else:
                 await ctx.send("There are currently no items available for auction.")
         else:
@@ -41,7 +45,7 @@ class Auctions(commands.Cog):
     @commands.hybrid_command(name="add_item", description="Add an item to the auction", help="Add an item to the auction. Admin only. Usage: !add_item [name] [description]", property="admin")
     async def add_item(self, ctx, name: str, description: str):
          if any(role.id in self.bot.config.STAFF_ROLES for role in ctx.author.roles):
-            response = await self.bot.api.add_item(name, description)
+            response = await self.bot.api.add_item(name, description, ctx.author.id)
             await ctx.send(f"{name} added to the auction items with ID: {response['item_id']}")
 
     # Add an item for auction. This is a simple command that takes a name and description for the item. Other commands for starting auctions, placing bids, etc. would be implemented similarly.
@@ -67,7 +71,7 @@ class Auctions(commands.Cog):
             else:
                 await ctx.send(f"Failed to place bid: {response.get('detail', 'No additional error information provided.')}")
         else:
-            await ctx.send("Failed to place bid. Please check the auction ID and try again.")
+            await ctx.send("Failed to place bid. " + (response.get("detail", "No additional error information provided.")))
 
     # This is an admin command to list all the active bids for a specific auction. This would be useful for the auctioneer to see who has placed bids and what the current highest bid is. The API would return a list of bids with the user ID, bid amount, and timestamp.
     @commands.hybrid_command(name="list_bids", description="List all bids for a specific auction", help="List all bids for a specific auction. Admin only. Usage: !list_bids [auction_id]")
@@ -124,7 +128,7 @@ class Auctions(commands.Cog):
         if any(role.id in self.bot.config.STAFF_ROLES for role in ctx.author.roles):
             response = await self.bot.api.start_auction(auction_id, duration_minutes)
             if response and "auction_id" in response:
-                await ctx.send(f"Auction ID: {response['auction_id']} has been started and will end at {response['end_time']}.")
+                await ctx.send(f"Auction ID: {response['auction_id']} has been started and will end at <t:{int(parser.parse(response['end_time']).timestamp())}:f>.")
             else:
                 await ctx.send("Failed to start the auction. Please check the auction ID and try again.")
 

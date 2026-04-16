@@ -24,10 +24,10 @@ class GuildAPI:
         print(f"Fetching balance for member ID {member_id}. URL: {url}")
         return await self._get(url)
 
-    async def add_item(self, name: str, description: str):
+    async def add_item(self, name: str, description: str, holder_id: int):
         url = f"{self.base_url}/auctions/add-item"
         print(f"Adding item: {name}. URL: {url}")
-        params = {"name": name, "description": description}
+        params = {"name": name, "description": description, "holder_id": holder_id}
         return await self._post(url, params)
 
     async def get_items(self):
