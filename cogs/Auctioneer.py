@@ -13,7 +13,7 @@ class Auctioneer(commands.Cog):
     def cog_unload(self):
         self.check_auctions.cancel()
 
-    @tasks.loop(seconds=15) # Check every 30 minutes
+    @tasks.loop(minutes=1) # Check every minute
     async def check_auctions(self):
         print("Checking for expired auctions...")
         # Query for auctions that ended but are still marked active
