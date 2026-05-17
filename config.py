@@ -28,6 +28,9 @@ class Config:
         self.STAFF_ROLES = [self.TREASURER_ROLE_ID, self.ADJUDICATOR_ROLE_ID]
         self.DATABASE_URL = os.getenv("DATABASE_URL") # Set this in your .env file, e.g., postgresql://user:password@host:port/database 
         
+        #Set the guild ID for syncing commands. This should be the ID of your testing server or main server where you want the commands to be available.
+        self.GUILD_ID = int(os.getenv("GUILD_ID")) 
+        
         # TODO: Not sure if needed but kept for posterity   
         self.LOOT_ROLL_EMOJI = '🎲' # You can use any emoji, e.g., '✅', '⚔️'   
 
