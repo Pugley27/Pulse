@@ -171,7 +171,7 @@ class Auctions(commands.Cog):
         response = await self.bot.api.place_bid( ctx.author.id, auction_id, amount)
         if response and "status" in response:
             if response["status"] == "success":
-                await ctx.send(f"Your bid for auction ID {auction_id} has been placed successfully!")
+                await ctx.send(f"Your bid has been placed successfully!")
             else:
                 await ctx.send(f"Failed to place bid: {response.get('detail', 'No additional error information provided.')}")
         else:
