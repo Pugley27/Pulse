@@ -31,6 +31,9 @@ class Config:
         #Set the guild ID for syncing commands. This should be the ID of your testing server or main server where you want the commands to be available.
         self.GUILD_ID = int(os.getenv("GUILD_ID")) 
         
+        # Set the auction channel ID where auction results will be posted. This should be the ID of the channel in your server where you want auction notifications to appear.
+        self.AUCTION_CHANNEL_ID = int(os.getenv("AUCTION_CHANNEL_ID"))
+        
         # TODO: Not sure if needed but kept for posterity   
         self.LOOT_ROLL_EMOJI = '🎲' # You can use any emoji, e.g., '✅', '⚔️'   
 
