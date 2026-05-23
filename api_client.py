@@ -57,6 +57,12 @@ class GuildAPI:
         params = {"auction_id": auction_id, "duration_minutes": duration_minutes}
         return await self._post(url, params) 
     
+    async def close_auction(self, auction_id: int):
+        url = f"{self.base_url}/auctions/close-auction"
+        print(f"Closing auction ID: {auction_id}. URL: {url}")
+        params = {"auction_id": auction_id}
+        return await self._post(url, params)
+    
     async def place_bid(self, user_id: int, auction_id: int, amount: int):
         url = f"{self.base_url}/auctions/place-bid"
         print(f"Placing bid for user ID: {user_id} on auction ID: {auction_id} with amount: {amount}. URL: {url}")
