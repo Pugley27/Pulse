@@ -177,6 +177,27 @@ class Auctions(commands.Cog):
         else:
             await ctx.send("Failed to place bid. " + (response.get("detail", "No additional error information provided.")))
 
+    # this command will close out an auction when the item has been sold. This would be used by the auctioneer to finalize the auction and determine the winner. The API would return the details of the winning bid, including the user ID of the winner, the winning bid amount, and the item that was sold.
+    @commands.hybrid_command(name="close_auction", description="Close an active auction", help="Close an active auction. Admin only. Usage: !close_auction [auction_id]")
+    async def close_auction(self, ctx, auction_id: int):
+        if any(role.id in self.bot.config.STAFF_ROLES for role in ctx.author.roles):
+            response = await self.bot.api.close_auction(auction_id)
+            if response and "status" in response:
+                if response["status"] == "success":
+                    auction_id = response.get("auction_id")
+                    winner_id = response.get("winner_id")
+                    item_name = response.get("item_name")
+                    holder_id = response.get("holder_id")
+                    winner_user = await self.bot.fetch_user(winner_id) if winner_id else "Unknown User"
+                    holder_user = await self.bot.fetch_user(holder_id) if holder_id else "Unknown User"
+                    await ctx.send(f"Auction {auction_id} closed successfully! Winner: {winner_user} has been awarded the item: {item_name} from {holder_user}.")
+                else:
+                    await ctx.send(f"Failed to close auction: {response.get('detail', 'No additional error information provided.')}")
+            else:
+                await ctx.send("Failed to close auction. " + (response.get("detail", "No additional error information provided.")))
+        else:
+            await ctx.send("You don't have the required permissions to use this command.")
+
     # This is an admin command to list all the active bids for a specific auction. This would be useful for the auctioneer to see who has placed bids and what the current highest bid is. The API would return a list of bids with the user ID, bid amount, and timestamp.
     @commands.hybrid_command(name="list_bids", description="List all bids for a specific auction", help="List all bids for a specific auction. Admin only. Usage: !list_bids [auction_id]")
     async def list_bids(self, ctx, auction_id: int):
