@@ -111,10 +111,10 @@ class Auctioneer(commands.Cog, ):
                 # Move to the fulfillment queue table
                 await conn.execute(
                     """
-                    INSERT INTO claimed_items (auction_id, item_id, name, winner_id, winning_bid, claimed_at, handed_out, holder_id)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                    INSERT INTO claimed_items (auction_id, item_id, name, description, winner_id, winning_bid, claimed_at, handed_out, holder_id)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                     """,
-                    record['id'], record['item_id'], item_name, winner['user_id'], winner['amount'], datetime.now(timezone.utc), False, item_record['holder_id']
+                    record['id'], record['item_id'], item_name, item_record['description'], winner['user_id'], winner['amount'], datetime.now(timezone.utc), False, item_record['holder_id']
                 )
 
                 announcement_lines.append(

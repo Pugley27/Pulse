@@ -117,12 +117,35 @@ class Auctions(commands.Cog):
         if response and "pending_handouts" in response:
             pending_handouts = response["pending_handouts"]
             if pending_handouts:
-                handout_list = "\n".join([f"Claimed Item ID: {handout['claimed_item_id']} - Auction ID: {handout['auction_id']} (Item: {handout['item_name']}) - Winner: <@{handout['winner_id']}> - Holder: <@{handout['holder_id']}>  - Winning Bid: {handout['winning_bid']}" for handout in pending_handouts])
-                await ctx.send(f"**Pending Handouts:**\n{handout_list}")
+                # Header formatting
+                msg_lines = ["📦 **Pending Distribution Manifest**", "```ansi"]
+                
+                for handout in pending_handouts:
+                    # Resolve winner mention safely via our optimization helper
+                    winner_mention = await self.resolve_user_string(handout['winner_id'])
+                    
+                    # --- ANSI Color Mappings ---
+                    # \u001b[1;36m = Bold Cyan (IDs)
+                    # \u001b[1;33m = Bold Yellow (Item Names)
+                    # \u001b[1;32m = Bold Green (Balances/Currencies)
+                    # \u001b[0m    = Reset color tracking
+                    
+                    line = (
+                        f"\u001b[1;36m[Claim ID: {handout['claimed_item_id']}]\u001b[0m "
+                        f"Auc #{handout['auction_id']} | "
+                        f"Item: \u001b[1;33m{handout['item_name']} - {handout['description']}\u001b[0m\n"
+                        f"  ↳ Winner: {winner_mention} | "
+                        f"Bid: \u001b[1;32m{handout['winning_bid']} Cruor\u001b[0m\n"
+                        f"  ----------------------------------------"
+                    )
+                    msg_lines.append(line)
+                
+                msg_lines.append("```")
+                await ctx.send("\n".join(msg_lines))
             else:
-                await ctx.send("There are currently no pending handouts.")
+                await ctx.send("✅ There are currently no pending handouts in the queue.")
         else:
-            await ctx.send("Failed to retrieve pending handouts.")
+            await ctx.send("❌ Failed to retrieve pending handouts from the secure API database.")
 
 # Command calls the api to find all the active auctions and sends a message with the results. 
     # Results include the auction ID, name, item name, and end time formatted cleanly.
