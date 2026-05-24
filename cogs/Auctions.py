@@ -10,6 +10,34 @@ class Auctions(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    async def resolve_user_string(self, user_id: int) -> str:
+        """
+        Safely resolves a Discord user mention. Returns a mention string if found,
+        or a fallback 'Unknown User (ID)' string if the user cannot be resolved.
+        
+        :param bot: The active discord.Client or commands.Bot instance
+        :param user_id: The raw 64-bit Discord member/user Snowflake ID
+        :return: A string ready for Discord message formatting (mention or raw fallback)
+        """
+        if not user_id:
+            return "None"
+
+        # 1. Look up user inside the bot's fast internal memory cache
+        user = self.bot.get_user(user_id)
+        if user:
+            return user.mention
+
+        # 2. Cache miss: Fetch directly from the live Discord API via network call
+        try:
+            user = await self.bot.fetch_user(user_id)
+            return user.mention
+        except discord.NotFound:
+            # Gracefully handles mock IDs (e.g., 1001) or users who deleted accounts/left
+            return f"Unknown User (`{user_id}`)"
+        except discord.HTTPException:
+            # Prevents bot crashes during general Discord API or network instability
+            return f"User Unavailable (`{user_id}`)"
+    
     # Returns a list of all the items that have been added for auction with their IDs, names, and descriptions. This command can be used by anyone to see what items are available for auction.
     @commands.hybrid_command(name="list_items", description="List all items available for auction", help="List all items available for auction. Usage: !list_items")
     async def list_items(self, ctx):
@@ -30,14 +58,13 @@ class Auctions(commands.Cog):
         # 2. Process and build the individual string entries for each item
         formatted_items = []
         for item in items:    
-            winner = await self.bot.fetch_user(item['member_id']) if item['member_id'] else 'None'
-            holder = await self.bot.fetch_user(item['holder_id']) if item['holder_id'] else 'None'
+            holder = await self.resolve_user_string(item['holder_id'])
             
             item_string = (
                 f"**ID:** {item['id']} - **{item['name']}**\n"
                 f"📝 *{item['description']}*\n"
                 f"Status: `{item['status']}` | Auction ID: `{item['auction_id']}`\n"
-                f"Winner: {winner} | Holder: {holder}"
+                f"Quantity: `{item['quantity']}` | Holder: {holder}"
             )
             formatted_items.append(item_string)
 
@@ -81,6 +108,44 @@ class Auctions(commands.Cog):
                 await ctx.send("There are currently no active auctions.")
         else:
             await ctx.send("Failed to retrieve auctions.")
+
+    #command to list all the non handed out auctions calling the awarded api
+    @commands.hybrid_command(name="list_awarded", description="List all awarded auctions that have not yet been handed out", help="List all awarded auctions that have not yet been handed out. Admin only. Usage: !list_awarded")            
+    async def list_awarded(self, ctx):
+        # Call the API to get the list of awarded auctions.
+        response = await self.bot.api.get_awarded_auctions()
+        if response and "pending_handouts" in response:
+            pending_handouts = response["pending_handouts"]
+            if pending_handouts:
+                # Header formatting
+                msg_lines = ["📦 **Pending Distribution Manifest**", "```ansi"]
+                
+                for handout in pending_handouts:
+                    # Resolve winner mention safely via our optimization helper
+                    winner_mention = await self.resolve_user_string(handout['winner_id'])
+                    
+                    # --- ANSI Color Mappings ---
+                    # \u001b[1;36m = Bold Cyan (IDs)
+                    # \u001b[1;33m = Bold Yellow (Item Names)
+                    # \u001b[1;32m = Bold Green (Balances/Currencies)
+                    # \u001b[0m    = Reset color tracking
+                    
+                    line = (
+                        f"\u001b[1;36m[Claim ID: {handout['claimed_item_id']}]\u001b[0m "
+                        f"Auc #{handout['auction_id']} | "
+                        f"Item: \u001b[1;33m{handout['item_name']} - {handout['description']}\u001b[0m\n"
+                        f"  ↳ Winner: {winner_mention} | "
+                        f"Bid: \u001b[1;32m{handout['winning_bid']} Cruor\u001b[0m\n"
+                        f"  ----------------------------------------"
+                    )
+                    msg_lines.append(line)
+                
+                msg_lines.append("```")
+                await ctx.send("\n".join(msg_lines))
+            else:
+                await ctx.send("✅ There are currently no pending handouts in the queue.")
+        else:
+            await ctx.send("❌ Failed to retrieve pending handouts from the secure API database.")
 
 # Command calls the api to find all the active auctions and sends a message with the results. 
     # Results include the auction ID, name, item name, and end time formatted cleanly.
@@ -147,9 +212,9 @@ class Auctions(commands.Cog):
 
     # Add an item for auction. This is a simple command that takes a name and description for the item. Other commands for starting auctions, placing bids, etc. would be implemented similarly.
     @commands.hybrid_command(name="add_item", description="Add an item to the auction", help="Add an item to the auction. Admin only. Usage: !add_item [name] [description]", property="admin")
-    async def add_item(self, ctx, name: str, description: str):
+    async def add_item(self, ctx, name: str, description: str, quantity: int = 1):
          if any(role.id in self.bot.config.STAFF_ROLES for role in ctx.author.roles):
-            response = await self.bot.api.add_item(name, description, ctx.author.id)
+            response = await self.bot.api.add_item(name, description, quantity, ctx.author.id)
             await ctx.send(f"{name} added to the auction items with ID: {response['item_id']}")
 
     # Add an item for auction. This is a simple command that takes a name and description for the item. Other commands for starting auctions, placing bids, etc. would be implemented similarly.
@@ -177,7 +242,22 @@ class Auctions(commands.Cog):
         else:
             await ctx.send("Failed to place bid. " + (response.get("detail", "No additional error information provided.")))
 
-    # This is an admin command to list all the active bids for a specific auction. This would be useful for the auctioneer to see who has placed bids and what the current highest bid is. The API would return a list of bids with the user ID, bid amount, and timestamp.
+
+    # Admin command to close an auction that has been sold.  This will delete the auction, and mark the claimed item as handed out. This is a simplified version of the auction closing process that would be used in a real implementation. In a real implementation, you would also want to handle cases where there are multiple winners (for multi-unit auctions), partial sales, and other edge cases.
+    @commands.hybrid_command(name="close_auction", description="Close an active auction", help="Close an active auction. Admin only. Usage: !close_auction [auction_id]")
+    async def close_auction(self, ctx, auction_id: int):
+        if any(role.id in self.bot.config.STAFF_ROLES for role in ctx.author.roles):
+            response = await self.bot.api.close_auction(auction_id)
+            if response and "status" in response:
+                if response["status"] == "success":
+                    await ctx.send(f"Auction ID: {auction_id} has been closed successfully!")
+                else:
+                    await ctx.send(f"Failed to close auction: {response.get('detail', 'No additional error information provided.')}")
+            else:
+                await ctx.send("Failed to close auction. " + (response.get("detail", "No additional error information provided.")))
+        else:
+            await ctx.send("You don't have the required permissions to use this command.")
+
     @commands.hybrid_command(name="list_bids", description="List all bids for a specific auction", help="List all bids for a specific auction. Admin only. Usage: !list_bids [auction_id]")
     async def list_bids(self, ctx, auction_id: int):
         if any(role.id in self.bot.config.STAFF_ROLES for role in ctx.author.roles):

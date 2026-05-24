@@ -3,25 +3,25 @@ import asyncpg
 from discord.ext import tasks, commands
 from datetime import datetime, timezone
 
-class Auctioneer(commands.Cog):
-    def __init__(self, bot, db_pool):
+class Auctioneer(commands.Cog, ):
+    def __init__(self, bot, db_pool, ):
         self.bot = bot
-        self.db_pool = db_pool # Your asyncpg connection pool
+        self.db_pool = db_pool  # Your asyncpg connection pool
         print("Auctioneer initialized.")    
         self.check_auctions.start()
+        self.channel_id = self.bot.config.AUCTION_CHANNEL_ID  # Get the channel ID from the bot's config
 
     def cog_unload(self):
         self.check_auctions.cancel()
 
-    @tasks.loop(minutes=1) # Check every minute
+    @tasks.loop(minutes=1)
     async def check_auctions(self):
         print("Checking for expired auctions...")
-        # Query for auctions that ended but are still marked active
-        # We use 'FOR UPDATE' to lock rows if you have multiple bot clusters
         query = """
-            SELECT id, name, item_id, end_time 
-            FROM auctions
-            WHERE end_time <= $1 AND status = 'active'
+            SELECT a.id, a.name, a.item_id, a.end_time, i.quantity 
+            FROM auctions a
+            JOIN auction_items i ON a.item_id = i.id
+            WHERE a.end_time <= $1 AND a.status = 'active'
         """
         now = datetime.now(timezone.utc)
         
@@ -33,74 +33,105 @@ class Auctioneer(commands.Cog):
                 for record in expired_auctions:
                     print(f"Processing expired auction: {record['id']} - {record['name']} (ended at {record['end_time']})")
                     await self.process_auction_end(record, conn)
-                    
 
     @check_auctions.before_loop
     async def before_check_auctions(self):
-        # This waits until the bot is fully logged in before starting the loop
         await self.bot.wait_until_ready()
         print("✅ Auction loop is starting up...")
 
     @check_auctions.error
     async def on_auction_error(self, error):
-        # This will catch and print any DB or code errors that normally happen silently
         print(f"❌ ERROR in auction loop: {error}")
 
     async def process_auction_end(self, record, conn):
-        channel = self.bot.get_channel(1493392989647540304)
+        channel = self.bot.get_channel(self.channel_id)
         if not channel:
             return
 
-        # Query your database for a random winner among the highest bidders
-        winner_query = """
+        # Fetch top unique bids matching up to the total available item quantity
+        winners_query = """
             SELECT user_id, amount 
-            FROM bids 
-            WHERE auction_id = $1 
-            AND amount = (
-                SELECT MAX(amount) 
+            FROM (
+                SELECT user_id, amount,
+                       ROW_NUMBER() OVER (ORDER BY amount DESC, created_at ASC) as rank
                 FROM bids 
                 WHERE auction_id = $1
-            )
-            ORDER BY RANDOM() 
-            LIMIT 1
+            ) ranked_bids
+            WHERE rank <= $2
         """
 
-        winner = await conn.fetchrow(winner_query, record['id'])
+        winners = await conn.fetch(winners_query, record['id'], record['quantity'])
+        actual_items_won = len(winners)
 
-        print(f"Processing auction end for {record['id']}. Winner: {winner['user_id'] if winner else 'None'}")
+        print(f"Processing auction end for {record['id']}. Found {actual_items_won} winners out of {record['quantity']} slots.")
 
-        if winner:
-
-           # Loopup item name from items table
-            item_query = "SELECT name FROM auction_items WHERE id = $1"
+        if winners:
+            # Fetch the current item details from the inventory catalog
+            item_query = "SELECT name, description, quantity, holder_id FROM auction_items WHERE id = $1"
             item_record = await conn.fetchrow(item_query, record['item_id'])
             item_name = item_record['name'] if item_record else f"Item {record['item_id']}"
 
-            # Update status so we know who won and that the auction is no longer active and remove cruor from winner
-            await conn.execute("UPDATE auctions SET status = 'awarded', winner_id = $2 WHERE id = $1", record['id'], winner['user_id'])
-            #update auction item status to sold
-            await conn.execute("UPDATE auction_items SET status = 'sold', member_id = $2 WHERE id = $1", record['item_id'], winner['user_id'])
-            # Deduct the bid amount from the winner's balance in the lootBox table
-            await conn.execute(
-                'UPDATE "lockBox" SET cruor_amount = cruor_amount - $1 WHERE member_id = $2',
-                winner['amount'], winner['user_id']
-            )
+            # 1. Update overall auction state to awarded
+            await conn.execute("UPDATE auctions SET status = 'awarded' WHERE id = $1", record['id'])
+            
+            # 2. Manage inventory clean-off / split logic
+            # Calculate any remaining stock left unallocated
+            leftover_quantity = record['quantity'] - actual_items_won
 
-            # Send a message to the channel announcing the winner
-            await channel.send(
-                f"🏆 **Auction Ended!**\n"
-                f"Item #{record['id']}: **{item_name}**\n"
-                f"Winner: <@{winner['user_id']}> with a bid of {winner['amount']} Cruor!"
+            if leftover_quantity > 0 and item_record:
+                # Part of the batch went unsold. Clone the leftovers into a brand new available row!
+                leftover_id = await conn.fetchval(
+                    """
+                    INSERT INTO auction_items (name, description, quantity, status, auction_id, holder_id)
+                    VALUES ($1, $2, $3, 'available', NULL, $4)
+                    RETURNING id;
+                    """,
+                    item_record['name'], item_record['description'], leftover_quantity, item_record['holder_id']
+                )
+                print(f"♻️ Leftovers generated: Created new item row ID {leftover_id} with {leftover_quantity} units.")
+            
+            # Delete the old item batch row entirely so it is completely cleaned off active tracking
+            await conn.execute("DELETE FROM auction_items WHERE id = $1", record['item_id'])
+
+            announcement_lines = [
+                f"🏆 **Multi-Unit Auction Ended!**",
+                f"Item: **{item_name}** (Auction #{record['id']})",
+                f"Units Awarded: **{actual_items_won}** / **{record['quantity']}**\n",
+                "**Winners (Items added to the Handout Queue):**"
+            ]
+
+            # 3. Insert each individual winner into the claimed_items table and deduct balances
+            for index, winner in enumerate(winners, start=1):
+                # Deduct currency
+                await conn.execute(
+                    'UPDATE "lockBox" SET cruor_amount = cruor_amount - $1 WHERE member_id = $2',
+                    winner['amount'], winner['user_id']
+                )
+                
+                # Move to the fulfillment queue table
+                await conn.execute(
+                    """
+                    INSERT INTO claimed_items (auction_id, item_id, name, description, winner_id, winning_bid, claimed_at, handed_out, holder_id)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                    """,
+                    record['id'], record['item_id'], item_name, item_record['description'], winner['user_id'], winner['amount'], datetime.now(timezone.utc), False, item_record['holder_id']
                 )
 
+                announcement_lines.append(
+                    f"{index}. <@{winner['user_id']}> — **{winner['amount']}** Cruor"
+                )
+
+            # Send full roster to Discord
+            await channel.send("\n".join(announcement_lines))
+
         else:
-            # No bids were placed, mark as unscheduled with no winner
-            await conn.execute("UPDATE auctions SET status = 'unscheduled', winner_id = $2 WHERE id = $1", record['id'], None)
+            # No bids placed at all: reset auction status to unscheduled.
+            # The item remains in auction_items completely untouched since zero quantity was removed.
+            await conn.execute("UPDATE auctions SET status = 'unscheduled' WHERE id = $1", record['id'])
             await channel.send(f"🚫 **Auction Ended!**\nNo bids were placed for {record['id']}.")
 
-        # remove all bids for that auction
+        # Clear active bid records for this completed lifecycle event
         await conn.execute("DELETE FROM bids WHERE auction_id = $1", record['id'])
 
-# This function is required for main.py to load the file
 async def setup(bot):
     await bot.add_cog(Auctioneer(bot, bot.db_pool))

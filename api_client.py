@@ -24,10 +24,10 @@ class GuildAPI:
         print(f"Fetching balance for member ID {member_id}. URL: {url}")
         return await self._get(url)
 
-    async def add_item(self, name: str, description: str, holder_id: int):
+    async def add_item(self, name: str, description: str, quantity: int, holder_id: int):
         url = f"{self.base_url}/auctions/add-item"
         print(f"Adding item: {name}. URL: {url}")
-        params = {"name": name, "description": description, "holder_id": holder_id}
+        params = {"name": name, "description": description, "quantity": quantity, "holder_id": holder_id}
         return await self._post(url, params)
 
     async def get_items(self):
@@ -56,6 +56,17 @@ class GuildAPI:
         print(f"Starting auction ID: {auction_id} for duration: {duration_minutes} minutes. URL: {url}")
         params = {"auction_id": auction_id, "duration_minutes": duration_minutes}
         return await self._post(url, params) 
+    
+    async def get_awarded_auctions(self):    
+        url = f"{self.base_url}/auctions/awarded"
+        print(f"Fetching awarded auctions. URL: {url}")
+        return await self._get(url)
+    
+    async def close_auction(self, auction_id: int):
+        url = f"{self.base_url}/auctions/close-auction"
+        print(f"Closing auction ID: {auction_id}. URL: {url}")
+        params = {"auction_id": auction_id}
+        return await self._post(url, params)
     
     async def place_bid(self, user_id: int, auction_id: int, amount: int):
         url = f"{self.base_url}/auctions/place-bid"
