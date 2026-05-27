@@ -122,7 +122,6 @@ class Auctions(commands.Cog):
                 for handout in pending_handouts:
                     # Resolve winner mention safely via our optimization helper
                     winner_mention = await self.resolve_user_string(handout['winner_id'])
-                    holder_mention = await self.resolve_user_string(handout['holder_id'])
                     # --- ANSI Color Mappings ---
                     # \u001b[1;36m = Bold Cyan (IDs)
                     # \u001b[1;33m = Bold Yellow (Item Names)
@@ -134,8 +133,8 @@ class Auctions(commands.Cog):
                         f"🏆 **Event:** {handout['auction_id']}\n"
                         f"📦 **Item:** *{handout['item_name']} - {handout['description']}*\n"
                         f"  ↳ 👑 **Winner:** {winner_mention}\n"
-                        f"  ↳ 💰 **Bid:** `{handout['winning_bid']} Cruor`"
-                        f"  ↳ 📅 **Holder:** `{holder_mention}`"
+                        f"  ↳ 💰 **Bid:** `{handout['winning_bid']} Cruor\n`"
+                        f"  ↳ 📅 **Holder:** `<@{handout['holder_id']}>`"
                     )
                     formatted_auctions.append(auction_string)
 
