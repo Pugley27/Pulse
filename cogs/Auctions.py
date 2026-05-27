@@ -118,8 +118,7 @@ class Auctions(commands.Cog):
             pending_handouts = response["pending_handouts"]
             if pending_handouts:
                 # Header formatting
-                msg_lines = ["📦 **Pending Distribution Manifest**", "```ansi"]
-                
+                formatted_auctions = []
                 for handout in pending_handouts:
                     # Resolve winner mention safely via our optimization helper
                     winner_mention = await self.resolve_user_string(handout['winner_id'])
@@ -129,21 +128,19 @@ class Auctions(commands.Cog):
                     # \u001b[1;33m = Bold Yellow (Item Names)
                     # \u001b[1;32m = Bold Green (Balances/Currencies)
                     # \u001b[0m    = Reset color tracking
-                    
-                    line = (
-                        f"\u001b[1;36m[Claim ID: {handout['claimed_item_id']}]\u001b[0m "
-                        f"Auc #{handout['auction_id']} | "
-                        f"Item: \u001b[1;33m{handout['item_name']} - {handout['description']}\u001b[0m\n"
-                        f"  ↳ Winner: {winner_mention} | "
-                        f"Bid: \u001b[1;32m{handout['winning_bid']} Cruor\u001b[0m\n"
-                        f"  ----------------------------------------"
-                    )
-                    msg_lines.append(line)
-                
-                msg_lines.append("```")
 
+                    auction_string = (
+                        f"🆔 **Claim ID:** `{handout['claimed_item_id']}`\n"
+                        f"🏆 **Event:** {handout['auction_name']}\n"
+                        f"📦 **Item:** *{handout['item_name']} - {handout['description']}*\n"
+                        f"  ↳ 👑 **Winner:** {winner_mention}\n"
+                        f"  ↳ 💰 **Bid:** `{handout['winning_bid']} Cruor`"
+                    )
+                    formatted_auctions.append(auction_string)
+
+                
                 auctions_per_page = 6  
-                chunks = [msg_lines[i:i + auctions_per_page] for i in range(0, len(msg_lines), auctions_per_page)]
+                chunks = [formatted_auctions[i:i + auctions_per_page] for i in range(0, len(formatted_auctions), auctions_per_page)]
                 # Generate the Embed pages
                 embeds = []
                 for index, chunk in enumerate(chunks):
