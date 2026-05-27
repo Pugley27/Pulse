@@ -145,7 +145,7 @@ class Auctions(commands.Cog):
                 embeds = []
                 for index, chunk in enumerate(chunks):
                     embed = discord.Embed(
-                        title="🚨 Active Market Auctions", 
+                        title="🚨 Pending Handouts", 
                         color=discord.Color.gold()  # Distinct color for auctions vs standard items
                     )
                     embed.description = "\n\n---\n\n".join(chunk)
