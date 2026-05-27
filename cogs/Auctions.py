@@ -274,6 +274,21 @@ class Auctions(commands.Cog):
         else:
             await ctx.send("You don't have the required permissions to use this command.")
 
+    #close claim command to mark a claimed item as handed out. This would be used after an auction has been closed and the winner has been determined. This command would mark the item as handed out in the database so that it no longer shows up in the pending handouts list.
+    @commands.hybrid_command(name="close_claim", description="Close a claimed item", help="Close a claimed item. Admin only. Usage: !close_claim [claim_id]")
+    async def close_claim(self, ctx, claim_id: int):
+        if any(role.id in self.bot.config.STAFF_ROLES for role in ctx.author.roles):
+            response = await self.bot.api.close_claim(claim_id)
+            if response and "status" in response:
+                if response["status"] == "success":
+                    await ctx.send(f"Claim ID: {claim_id} has been closed successfully!")
+                else:
+                    await ctx.send(f"Failed to close claim: {response.get('detail', 'No additional error information provided.')}")
+            else:
+                await ctx.send("Failed to close claim. " + (response.get("detail", "No additional error information provided.")))
+        else:
+            await ctx.send("You don't have the required permissions to use this command.")
+
     @commands.hybrid_command(name="list_bids", description="List all bids for a specific auction", help="List all bids for a specific auction. Admin only. Usage: !list_bids [auction_id]")
     async def list_bids(self, ctx, auction_id: int):
         if any(role.id in self.bot.config.STAFF_ROLES for role in ctx.author.roles):
