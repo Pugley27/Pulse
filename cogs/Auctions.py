@@ -141,7 +141,27 @@ class Auctions(commands.Cog):
                     msg_lines.append(line)
                 
                 msg_lines.append("```")
-                await ctx.send("\n".join(msg_lines))
+
+                auctions_per_page = 6  
+                chunks = [msg_lines[i:i + auctions_per_page] for i in range(0, len(msg_lines), auctions_per_page)]
+                # Generate the Embed pages
+                embeds = []
+                for index, chunk in enumerate(chunks):
+                    embed = discord.Embed(
+                        title="🚨 Active Market Auctions", 
+                        color=discord.Color.gold()  # Distinct color for auctions vs standard items
+                    )
+                    embed.description = "\n\n---\n\n".join(chunk)
+                    embed.set_footer(text=f"Page {index + 1} of {len(chunks)}")
+                    embeds.append(embed)
+
+                # 5. Deliver the paginated response
+                if len(embeds) == 1:
+                    await ctx.send(embed=embeds[0])
+                else:
+                    view = MarketPaginationView(embeds)
+                    view.update_button_states()
+                    await ctx.send(embed=embeds[0], view=view)
             else:
                 await ctx.send("✅ There are currently no pending handouts in the queue.")
         else:
