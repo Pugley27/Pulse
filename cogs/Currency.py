@@ -37,7 +37,7 @@ class Currency(commands.Cog):
         response = await self.bot.api.get_balance(target.id)
             
         data = response
-        await ctx.send(f"💰 {target.display_name} has **{data['balance']} Cruor**.")     
+        await ctx.send(f"💰 {target.display_name} has **{data['balance']} Cruor**.", ephemeral=True)     
 
     # This handles errors specifically for this Cog
     async def cog_command_error(self, ctx, error):
