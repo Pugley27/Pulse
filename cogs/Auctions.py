@@ -109,62 +109,63 @@ class Auctions(commands.Cog):
         else:
             await ctx.send("Failed to retrieve auctions.")
 
-    #command to list all the non handed out auctions calling the awarded api
-    @commands.hybrid_command(name="list_awarded", description="List all awarded auctions that have not yet been handed out", help="List all awarded auctions that have not yet been handed out. Admin only. Usage: !list_awarded")            
+
+    @commands.hybrid_command(name="list_awarded", description="List all awarded auctions that have not yet been handed out", help="List all awarded auctions that have not yet been handed out. Admin only. Usage: !list_awarded")             
     async def list_awarded(self, ctx):
         # Call the API to get the list of awarded auctions.
         response = await self.bot.api.get_awarded_auctions()
         if response and "pending_handouts" in response:
             pending_handouts = response["pending_handouts"]
             if pending_handouts:
-                # Header formatting
-                formatted_auctions = []
-                for handout in pending_handouts:
-                    # Resolve winner mention safely via our optimization helper
-                    winner_mention = await self.resolve_user_string(handout['winner_id'])
-                    # --- ANSI Color Mappings ---
-                    # \u001b[1;36m = Bold Cyan (IDs)
-                    # \u001b[1;33m = Bold Yellow (Item Names)
-                    # \u001b[1;32m = Bold Green (Balances/Currencies)
-                    # \u001b[0m    = Reset color tracking
-
-                    auction_string = (
-                        f"🆔 **Claim ID:** `{handout['claimed_item_id']}`\n"
-                        f"🏆 **Event:** {handout['auction_id']}\n"
-                        f"📦 **Item:** *{handout['item_name']} - {handout['description']}*\n"
-                        f"  ↳ 👑 **Winner:** {winner_mention}\n"
-                        f"  ↳ 💰 **Bid:** `{handout['winning_bid']} Cruor\n`"
-                        f"  ↳ 📅 **Holder:** `<@{handout['holder_id']}>`"
-                    )
-                    formatted_auctions.append(auction_string)
-
                 
-                auctions_per_page = 6  
-                chunks = [formatted_auctions[i:i + auctions_per_page] for i in range(0, len(formatted_auctions), auctions_per_page)]
+                # --- PAGINATION SETUP ---
+                # Since we are putting 1 detailed item card per embed page, 
+                # we chunk by 1 instead of 6 to keep it readable and premium.
+                auctions_per_page = 1  
+                chunks = [pending_handouts[i:i + auctions_per_page] for i in range(0, len(pending_handouts), auctions_per_page)]
+                
                 # Generate the Embed pages
                 embeds = []
                 for index, chunk in enumerate(chunks):
                     embed = discord.Embed(
-                        title="🚨 Pending Handouts", 
-                        color=discord.Color.gold()  # Distinct color for auctions vs standard items
+                        title="🚨 Pending Handout", 
+                        color=discord.Color.gold()  # Clean gold color bar
                     )
-                    embed.description = "\n\n---\n\n".join(chunk)
-                    embed.set_footer(text=f"Page {index + 1} of {len(chunks)}")
+                    
+                    # We only have 1 handout per page in this chunk setup
+                    handout = chunk[0]
+                    
+                    # Resolve winner mention safely via our optimization helper
+                    holder_mention = await self.resolve_user_string(handout['holder_id'])
+                    winner_mention = await self.resolve_user_string(handout['winner_id'])
+                    
+                    # --- EMBED STRUCTURE (No clutter, perfect username rendering) ---
+                    item_value = f"**{handout['item_name']}** — *{handout['description']}*"
+                    embed.add_field(name="ID", value=f"`{handout['claimed_item_id']}`", inline=True)
+                    embed.add_field(name="Auction", value=handout['auction_id'], inline=True)
+                    embed.add_field(name="Item", value=item_value, inline=True)
+                    
+                    embed.add_field(name="Winner", value=winner_mention, inline=True)
+                    embed.add_field(name="Winning Bid", value=f"`{handout['winning_bid']} Cruor`", inline=True)
+                    embed.add_field(name="Current Holder", value=holder_mention, inline=True)
+                    
+                    embed.set_footer(text=f"Item {index + 1} of {len(chunks)}")
                     embeds.append(embed)
 
-                # 5. Deliver the paginated response
+                # Deliver the paginated response
                 if len(embeds) == 1:
                     await ctx.send(embed=embeds[0])
                 else:
                     view = MarketPaginationView(embeds)
                     view.update_button_states()
-                    await ctx.send(embed=embeds[0], view=view)
+                    await ctx.send(embed=embeds[0], view=view, ephemeral=True)
             else:
                 await ctx.send("✅ There are currently no pending handouts in the queue.")
         else:
             await ctx.send("❌ Failed to retrieve pending handouts from the secure API database.")
 
-# Command calls the api to find all the active auctions and sends a message with the results. 
+    
+    # Command calls the api to find all the active auctions and sends a message with the results. 
     # Results include the auction ID, name, item name, and end time formatted cleanly.
     @commands.hybrid_command(name="list_auctions", description="List all active auctions", help="List all active auctions. Usage: !list_auctions")
     async def list_auctions(self, ctx):
